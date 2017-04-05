@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">GifSearch</string>
+    <string name="prompt">What kind of Gif would you like?</string>
+    <string name="search">Search</string>
+    <string name="image">Gif Image</string>
+    <string name="searchHint">Enter subject here</string>
+    <string name="detail_default_text">No Descriptions</string>
+</resources>
