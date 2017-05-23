@@ -5,7 +5,7 @@ import android.support.v4.util.Pair;
 /**
  * Class Name:  GifClickResponder
  *
- * Purpose:     Interface to standardize click listeners for VieHolder
+ * Purpose:     Interface to standardize click listeners for ViewHolder
  *
  * Author:      David Wei
  * Created on:  4/3/17

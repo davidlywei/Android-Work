@@ -37,6 +37,9 @@ class GifViewHolder extends RecyclerView.ViewHolder {
         // Link GUI gif Address TextView to Code TextView
         mGifDescription = (TextView) itemView.findViewById(R.id.A_TV_itemView);
 
+        // Link GUI ImageView to Code NetworkImageView
+        mGifImage = (NetworkImageView) itemView.findViewById(R.id.A_NIV_gifImage);
+
         // Set Image loader
         mGifImageLoader = loader;
     }
@@ -44,7 +47,7 @@ class GifViewHolder extends RecyclerView.ViewHolder {
     /**
      * Takes in a pair, and sets the image's properties
      *
-     * @param imageProperties
+     * @param imageProperties: A pair of Url and Image Description
      *
      */
     void setProperties(Pair<String, String> imageProperties)
@@ -56,12 +59,7 @@ class GifViewHolder extends RecyclerView.ViewHolder {
         mGifDescription.setText(imageProperties.second);
 
         // Load image from URL
-        mGifImage = (NetworkImageView) itemView.findViewById(R.id.A_NIV_gifImage);
         mGifImage.setImageUrl(mGifAddressText.first, mGifImageLoader);
-
-        // TODO: add Default and Error images
-        //mGifImage.setDefaultImageResId();
-        //mGifImage.setErrorImageResId(R.drawable.error);
     }
 
     /**

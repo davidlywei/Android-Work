@@ -2,19 +2,23 @@ package com.example.android.gifsearch;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.support.v4.util.Pair;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.support.v7.preference.PreferenceManager;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.util.LruCache;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.Toast;
 
 import com.android.volley.Request;
 import com.android.volley.RequestQueue;
@@ -41,13 +45,16 @@ import java.util.ArrayList;
  *
  * Author:      David Wei
  * Created on:  4/3/17
- * Changelog:   First Version           4/3/17
- *              Added RecyclerView      4/3/17
- *              Added Network support   4/3/17
- *              Added JSON parsing      4/4/17
- *              Added New Activity      4/4/17
- *              Added new Toaster       4/5/17
+ * Changelog:   First Version           4/03/17
+ *              Added RecyclerView      4/03/17
+ *              Added Network support   4/03/17
+ *              Added JSON parsing      4/04/17
+ *              Added New Activity      4/04/17
+ *              Added new Toaster       4/05/17
+ *              Added Preferences       4/15/17
  */
+
+
 public class MainActivity extends AppCompatActivity {
 
     private EditText mSearchEditText;
@@ -57,16 +64,100 @@ public class MainActivity extends AppCompatActivity {
     private RequestQueue mRequestQueue;
     private ImageLoader mImageLoader;
 
+    private SharedPreferences mSharedPreferences;
+    private PreferenceChangeListner mPrefListener;
+
+    private boolean mRatingSelection[];
+
+    // Rating Selection indicies
+    private final int RATING_Y_IDX =        0;
+    private final int RATING_G_IDX =        1;
+    private final int RATING_PG_IDX =       2;
+    private final int RATING_PG13_IDX =     3;
+    private final int RATING_R_IDX =        4;
+    private final int RATING_UNRATED_IDX =  5;
+    private final int NUM_RATINGS =         6;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // Initialize Volley
+        // Initialize ratings array and Ratings SharedPreferences
+        initializeSettings();
+
+        // Initialize Volley components (Request Queue, and Image Loader)
         initializeVolley();
 
-        // Initialize GUI Elements
+        // Initialize GUI Elements (Edit text and buttons)
         initializeGuiElements();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+
+        mSharedPreferences.unregisterOnSharedPreferenceChangeListener(mPrefListener);
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+
+        // Initialize inflater to inflate menu
+        MenuInflater inflater = getMenuInflater();
+
+        // Inflate menu from res
+        inflater.inflate(R.menu.gif_menu, menu);
+
+        return true;
+    }
+
+    /**
+     * Attaches a menu item listener to listen for settings
+     *
+     * @param item: Menu Item
+     * @return boolean to tell whether or not the action was handled
+     */
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+
+        // Get id of item selected
+        int id = item.getItemId();
+
+        if(id == R.id.launch_settings){
+
+            // Create launch settings intent
+            Intent launchSettings = new Intent(this, SettingsActivity.class);
+
+            // start the activity
+            startActivity(launchSettings);
+
+            // Handled item
+            return true;
+        }
+
+        return super.onOptionsItemSelected(item);
+    }
+
+    /**
+     * Initialize components for shared preferences
+     */
+    private void initializeSettings(){
+
+        // Get reference to shared preferences
+        mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
+
+        // Initialize ratings selection
+        mRatingSelection = new boolean[NUM_RATINGS];
+
+        // create preference listener
+        mPrefListener = new PreferenceChangeListner();
+
+        // Register preference listener
+        mSharedPreferences.registerOnSharedPreferenceChangeListener(mPrefListener);
+
+        // Initialize mRatingSelection array
+        setSettings();
     }
 
     /**
@@ -85,8 +176,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * Sets up the RecyclerView with
-     * @param itemList
+     * Sets up the RecyclerView
+     * @param itemList: Contains list of image URL and Description pairs
      */
     private void setupRecyclerView(ArrayList<Pair<String, String>> itemList) {
 
@@ -136,7 +227,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     //---------------------------------------------------------------------------------------------
-    //                                                                               Event Handlers
+    //                                                                       Submit Button Listener
     //---------------------------------------------------------------------------------------------
 
     /**
@@ -161,8 +252,7 @@ public class MainActivity extends AppCompatActivity {
             Log.d("Generated URL", url);
 
             // Create String request
-            StringRequest request = new StringRequest(Request.Method.GET,
-                url,
+            StringRequest request = new StringRequest(Request.Method.GET, url,
                 new Response.Listener<String>() {
 
                     // Process response string
@@ -229,12 +319,8 @@ public class MainActivity extends AppCompatActivity {
             // If gif is below a certain rating, add it to list of URLs
             for(Datum d : giphyJson.getData())
             {
-                // Store the rating of the image
-                String rating = d.getRating();
-
-                // TODO: Make rating selectable by User
                 // If image rating is pg or g
-                if(rating.equals("pg") || rating.equals("g")) {
+                if(checkRating(d.getRating())) {
 
                     // Separate out image slug descriptions
                     String[] slug = d.getSlug().split("-");
@@ -251,6 +337,9 @@ public class MainActivity extends AppCompatActivity {
                         description = "No Description";
                     }
 
+                    // Append Rating to Description
+                    description = "Rating: " + d.getRating() + "\n" + description;
+
                     // Store Image address, and created description into pair into arraylist
                     gifUrls.add(new Pair<>( d.getImages().getDownsized().getUrl(),
                                             description));
@@ -261,6 +350,11 @@ public class MainActivity extends AppCompatActivity {
             return gifUrls;
         }
     }
+
+
+    //---------------------------------------------------------------------------------------------
+    //                                                                          Item Click Listener
+    //---------------------------------------------------------------------------------------------
 
     /**
      * Implements functionality to start a new activity when clicking on an item in the
@@ -289,4 +383,65 @@ public class MainActivity extends AppCompatActivity {
             startActivity(imageDetailPg);
         }
     }
+
+
+    //---------------------------------------------------------------------------------------------
+    //                                                                   Preference Change Listener
+    //---------------------------------------------------------------------------------------------
+
+    /**
+     * Handles changes in shared preferences
+     */
+    private class PreferenceChangeListner
+            implements SharedPreferences.OnSharedPreferenceChangeListener {
+
+        @Override
+        public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
+
+            // On preference changes, set the settings array.
+            setSettings();
+        }
+    }
+
+    /**
+     * Sets the ratings based off of the values stored in SharedPreferences file
+     */
+    private void setSettings(){
+
+        mRatingSelection[RATING_Y_IDX] =
+                mSharedPreferences.getBoolean(getString(R.string.rating_y_key),         true);
+        mRatingSelection[RATING_G_IDX] =
+                mSharedPreferences.getBoolean(getString(R.string.rating_g_key),         true);
+        mRatingSelection[RATING_PG_IDX] =
+                mSharedPreferences.getBoolean(getString(R.string.rating_pg_key),        true);
+        mRatingSelection[RATING_PG13_IDX] =
+                mSharedPreferences.getBoolean(getString(R.string.rating_pg13_key),      true);
+        mRatingSelection[RATING_R_IDX] =
+                mSharedPreferences.getBoolean(getString(R.string.rating_r_key),         false);
+        mRatingSelection[RATING_UNRATED_IDX] =
+                mSharedPreferences.getBoolean(getString(R.string.rating_unrated_key),   false);
+
+    }
+
+    /**
+     * Method to check if requested rating should be displayed
+     * @param rating: String representation of rating
+     */
+    private boolean checkRating(String rating){
+        switch (rating){
+            case "y":
+                return mRatingSelection[RATING_Y_IDX];
+            case "g":
+                return mRatingSelection[RATING_G_IDX];
+            case "pg":
+                return mRatingSelection[RATING_PG_IDX];
+            case "pg-13":
+                return mRatingSelection[RATING_PG13_IDX];
+            case "r":
+                return mRatingSelection[RATING_R_IDX];
+            default:
+                return mRatingSelection[RATING_UNRATED_IDX];
+        }
+    }
+
 }

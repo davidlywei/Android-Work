@@ -61,10 +61,9 @@ public class GifAdapter extends RecyclerView.Adapter<GifViewHolder>{
         // Inflate View (false because we do not want to attach it to the parent immediately)
         View gifItemView = inflater.inflate(layoutRef, parent, attachImmediately);
 
-        // Create gifVieHolder
-        GifViewHolder gifViewHolder = new GifViewHolder(gifItemView, mGifClickResponder, mImageLoader);
 
-        return gifViewHolder;
+        // Return GifViewHolder
+        return new GifViewHolder(gifItemView, mGifClickResponder, mImageLoader);
     }
 
     @Override
